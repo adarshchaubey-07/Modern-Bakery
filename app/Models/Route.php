@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Route extends Model
+{
+    protected $table = 'tbl_route';
+    protected $primaryKey = 'id';
+
+    protected $fillable = [
+        'route_code',
+        'route_name',
+        'description',
+        'route_type',
+        'vehicle_id',
+        'status',
+        'created_user',
+        'updated_user',
+        'region_id'
+    ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->route_code)) {
+                $lastId = self::max('id') ?? 0;
+                $nextId = $lastId + 1;
+                $model->route_code = 'RT' . str_pad($nextId, 2, '0', STR_PAD_LEFT);
+            }
+        });
+    }
+    public function vehicle()
+    {
+        return $this->belongsTo(Vehicle::class, 'vehicle_id');
+    }
+    public function region()
+    {
+        return $this->belongsTo(Region::class, 'region_id');
+    }
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_user');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(User::class, 'updated_user');
+    }
+    public function getrouteType()
+    {
+        return $this->belongsTo(RouteType::class,'route_type');
+    }
+    public function customers()
+    {
+        return $this->hasMany(AgentCustomer::class, 'route_id', 'id');
+    }
+}
