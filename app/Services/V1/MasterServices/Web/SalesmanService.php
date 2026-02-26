@@ -193,7 +193,6 @@ class SalesmanService
             'route:id,route_code,route_name',
             'salesmanType:id,salesman_type_code,salesman_type_name',
             'company:id,company_code,company_name'
-            // 'subtype:id,osa_code,name'
         ])
             ->where('uuid', $uuid)
             ->first();
@@ -240,26 +239,6 @@ class SalesmanService
         }
     }
 
-    // public function updateByUuid(string $uuid, array $data): Salesman
-    //     {
-    //         DB::beginTransaction();
-    //         try {
-    //             $salesman = $this->findByUuid($uuid);
-    //             $salesman->update($data);
-    //             DB::commit();
-    //             return $salesman;
-    //         } catch (Throwable $e) {
-    //             DB::rollBack();
-    //             $friendlyMessage = $e instanceof Error ? "Server error occurred." : "Something went wrong, please try again.";
-    //             Log::error('Salesman update failed', [
-    //                 'error' => $e->getMessage(),
-    //                 'uuid'  => $uuid,
-    //                 'data'  => $data,
-    //             ]);
-
-    //             throw new \Exception($friendlyMessage, 0, $e);
-    //         }
-    //     }
     public function updateByUuid(string $uuid, array $data): Salesman
     {
         DB::beginTransaction();
@@ -351,33 +330,41 @@ public function globalSearch(int $perPage = 50, ?string $keyword = null)
     try {
         $user = auth()->user();
 
-        $query = Salesman::with(['route']);
+        $query = Salesman::query()
+            ->select('salesman.*')
+            ->leftJoin('tbl_route', 'tbl_route.id', '=', 'salesman.route_id')
+            ->leftJoin('salesman_types', 'salesman_types.id', '=', 'salesman.type')
+            ->leftJoin('salesman_roles', 'salesman_roles.id', '=', 'salesman.role_id')
+            ->leftJoin('tbl_company', 'tbl_company.id', '=', 'salesman.company_id')
+            ->leftJoin('outlet_channel', 'outlet_channel.id', '=', 'salesman.channel_id');
 
         if (!empty($keyword)) {
+
             $query->where(function ($q) use ($keyword) {
 
-                $searchableFields = [
-                    'name',
-                    'osa_code',
-                    'contact_no',
-                    'email',
-                    'designation',
-                    'status',
-                ];
+                $keyword = "%{$keyword}%";
 
-                foreach ($searchableFields as $field) {
-                    $q->orWhereRaw(
-                        "CAST({$field} AS TEXT) ILIKE ?",
-                        ['%' . $keyword . '%']
-                    );
-                }
-                $routeIds = Route::where('route_name', 'ILIKE', "%{$keyword}%")
-                    ->pluck('id')
-                    ->toArray();
+                $q->orWhere('salesman.name', 'ILIKE', $keyword)
+                  ->orWhere('salesman.osa_code', 'ILIKE', $keyword)
+                  ->orWhere('salesman.contact_no', 'ILIKE', $keyword)
+                  ->orWhere('salesman.email', 'ILIKE', $keyword)
+                  ->orWhere('salesman.designation', 'ILIKE', $keyword)
+                  ->orWhere('salesman.status', 'ILIKE', $keyword)
 
-                if (!empty($routeIds)) {
-                    $q->orWhereIn('route_id', $routeIds);
-                }
+                  ->orWhere('tbl_route.route_name', 'ILIKE', $keyword)
+                  ->orWhere('tbl_route.route_code', 'ILIKE', $keyword)
+
+                  ->orWhere('salesman_types.salesman_type_code', 'ILIKE', $keyword)
+                  ->orWhere('salesman_types.salesman_type_name', 'ILIKE', $keyword)
+
+                  ->orWhere('salesman_roles.code', 'ILIKE', $keyword)
+                  ->orWhere('salesman_roles.name', 'ILIKE', $keyword)
+
+                  ->orWhere('tbl_company.company_code', 'ILIKE', $keyword)
+                  ->orWhere('tbl_company.company_name', 'ILIKE', $keyword)
+
+                  ->orWhere('outlet_channel.outlet_channel_code', 'ILIKE', $keyword)
+                  ->orWhere('outlet_channel.outlet_channel', 'ILIKE', $keyword);
             });
         }
 
@@ -386,7 +373,7 @@ public function globalSearch(int $perPage = 50, ?string $keyword = null)
         return $query->paginate($perPage);
 
     } catch (\Exception $e) {
-        throw new \Exception("Failed to search salesmen: " . $e->getMessage());
+        throw new \Exception("Failed to search salesman: " . $e->getMessage());
     }
 }
     public function salespersalesman(string $uuid, int $perPage = 50, bool $dropdown = false, ?string $from = null, ?string $to = null)

@@ -56,7 +56,7 @@ class PricingDetailUpdateRequest extends FormRequest
             'outlet_channel_id' => 'sometimes|array',
             'outlet_channel_id.*' => 'integer|exists:outlet_channel,id',
 
-            'customer_id' => 'sometimes|array',
+            'customer_id' => 'sometimes|array', 
             'customer_id.*' => 'integer|exists:agent_customers,id',
 
             // 🔹 Details array

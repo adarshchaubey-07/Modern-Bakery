@@ -278,8 +278,6 @@ class PricingDetailController extends Controller
 
         try {
             $validatedData = $request->validated();
-            //   dd($validatedData);
-            // Call service function
             $header = $this->service->updateByUuid($uuid, $validatedData);
 
             if ($header && $previousData) {
@@ -412,9 +410,6 @@ class PricingDetailController extends Controller
             $perPage    = (int) $request->get('per_page', 10);
             $searchTerm = $request->get('query', null);
 
-            /**
-             * 🔹 IMPORTANT: correct argument order
-             */
             $paginator = $this->service->globalSearch(
                 $perPage,
                 $searchTerm
@@ -433,7 +428,7 @@ class PricingDetailController extends Controller
                 ],
             ], 200);
         } catch (\Throwable $e) {
-// dd($e);
+dd($e);
             Log::error('[Pricing Global Search Failed]', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),

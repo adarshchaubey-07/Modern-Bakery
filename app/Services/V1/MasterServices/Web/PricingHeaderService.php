@@ -93,7 +93,7 @@ public function getAll(int $perPage = 50, array $filters = [])
             return null;
         }
 
-        return PricingHeader::where('uuid', $uuid)->first();
+        return PricingHeader::with(['details.item'])->where('uuid', $uuid)->first();
     }
 
 

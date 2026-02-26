@@ -496,7 +496,16 @@ public function getAll(int $perPage = 50, array $filters = [], bool $dropdown = 
                     ->orWhereRaw("LOWER(name) LIKE ?", [$likeSearch])
                     ->orWhereRaw("LOWER(description) LIKE ?", [$likeSearch])
                     ->orWhereRaw("CAST(vat AS TEXT) LIKE ?", [$likeSearch])
-                    ->orWhereRaw("CAST(shelf_life AS TEXT) LIKE ?", [$likeSearch]);
+                    ->orWhereRaw("CAST(shelf_life AS TEXT) LIKE ?", [$likeSearch])
+
+                    ->orWhereHas('brandData', function ($brandQuery) use ($likeSearch) {
+                        $brandQuery->whereRaw("LOWER(name) LIKE ?", [$likeSearch]);
+                })
+
+                    ->orWhereHas('itemCategory', function ($categoryQuery) use ($likeSearch) {
+                        $categoryQuery->whereRaw("LOWER(category_name) LIKE ?", [$likeSearch])
+                            ->orWhereRaw("LOWER(category_code) LIKE ?", [$likeSearch]);
+                    });
             });
         }
 

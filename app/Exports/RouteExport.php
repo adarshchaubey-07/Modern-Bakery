@@ -21,8 +21,10 @@ class RouteExport implements
     protected $columns;
 
     protected $map = [
-        'route_code' => 'Route',
-        'region'     => 'Region',
+        'route_code' => 'Route Code',
+        'route_name' => 'Route Name',
+        'region_code' => 'Region Code',
+        'region_name' => 'Region Name',
         'route_type' => 'Route Type',
         'vehicle'    => 'Vehicle',
         'status'     => 'Status',
@@ -41,14 +43,12 @@ class RouteExport implements
 
             foreach ($this->columns as $column) {
                 $row[] = match ($column) {
-                    'route_code' => trim(
-                        ($route->route_code ?? '') . ' - ' .
-                        ($route->route_name ?? '')
-                    ),
-                    'region' => trim(
-                        ($route->region->region_code ?? '') . ' - ' .
-                        ($route->region->region_name ?? '')
-                    ),
+                    'route_code' => $route->route_code,
+                    'route_name' => $route->route_name,
+
+                    'region_code' => $route->region->region_code ?? '',
+                    'region_name' => $route->region->region_name ?? '',
+
                     'route_type' => optional($route->getrouteType)->route_type_name,
                     'vehicle'    => optional($route->vehicle)->vehicle_code,
                     'status'     => $route->status == 1 ? 'Active' : 'Inactive',
@@ -57,7 +57,7 @@ class RouteExport implements
             }
 
             return $row;
-        });
+        }); 
     }
 
     public function headings(): array

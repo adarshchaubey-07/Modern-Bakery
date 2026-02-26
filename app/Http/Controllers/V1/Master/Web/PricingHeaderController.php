@@ -11,6 +11,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use App\Imports\PricingImport;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Models\PricingHeader;
+use App\Models\PricingDetail;
+use App\Models\ItemUOM;
+
 
 /**
  * @OA\Schema(
@@ -114,7 +118,24 @@ class PricingHeaderController extends Controller
      */
 public function show(Request $request, string $uuid): JsonResponse
 {
-    $pricingHeader = $this->service->findByUuid($uuid);
+    $pricingHeader = PricingHeader::select(
+            'id',
+            'uuid',
+            'name',
+            'code',
+            'description',
+            'start_date',
+            'end_date',
+            'apply_on',
+            'status',
+            'outlet_channel_id',
+            'start_date',
+            'end_date',
+            'customer_id',
+            'company_id'
+        )
+        ->where('uuid', $uuid)
+        ->first();
 
     if (!$pricingHeader) {
         return response()->json([
@@ -124,27 +145,55 @@ public function show(Request $request, string $uuid): JsonResponse
         ], 404);
     }
 
-    $perPage = $request->get('limit', 10);
-
-    $details = $pricingHeader->details()
-        ->with('item')
+    $perPage = (int) $request->get('limit', 10);
+    $details = PricingDetail::with([
+            'item:id,code,name'
+        ])
+        ->where('header_id', $pricingHeader->id)
         ->paginate($perPage);
+
+    $itemIds = $details->pluck('item_id')->unique()->values();
+    $itemUoms = ItemUOM::with('uom:id,name')
+        ->whereIn('item_id', $itemIds)
+        ->get()
+        ->groupBy('item_id');
+
+    $items = $details->pluck('item')
+        ->unique('id')
+        ->values()
+        ->map(function ($item) use ($itemUoms) {
+
+            $uoms = $itemUoms[$item->id] ?? collect();
+
+            return [
+                'id'   => $item->id,
+                'code' => $item->code,
+                'name' => $item->name,
+                'item_uoms' => [
+                    'item_id' => $item->id, 
+                    'uom_id'  => $uoms->pluck('uom_id')->values(),
+                    'name'    => $uoms->pluck('uom.name')->values(),
+                ]
+            ];
+        });
 
     return response()->json([
         'status' => 'success',
-        'code' => 200,
-        'data' => [
-            'header' => new PricingHeaderResource($pricingHeader),
-            'details' => PricingDetailResource::collection($details->items()),
+        'code'   => 200,
+        'data'   => [
+            'header'  => new PricingHeaderResource($pricingHeader),
+            'item'    => $items,
+            'details' => PricingDetailResource::collection($details),
         ],
         'pagination' => [
             'current_page' => $details->currentPage(),
-            'last_page' => $details->lastPage(),
-            'per_page' => $details->perPage(),
-            'total' => $details->total(),
+            'last_page'    => $details->lastPage(),
+            'per_page'     => $details->perPage(),
+            'total'        => $details->total(),
         ]
     ]);
 }
+
 
 
     // /**

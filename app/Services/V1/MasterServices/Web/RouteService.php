@@ -140,8 +140,6 @@ public function getAll($perPage = 50, $filters = [], $dropdown = false)
             'region:id,region_code,region_name',
             'vehicle:id,vehicle_code,number_plat',
             'getrouteType:id,route_type_code,route_type_name',
-            'createdBy:id,name,username',
-            'updatedBy:id,name,username',
         ])
         ->withCount([
             'customers as customers_count' => function ($q) {
@@ -215,12 +213,6 @@ public function getAll($perPage = 50, $filters = [], $dropdown = false)
             $query = Route::with([
                 'vehicle' => function ($q) {
                     $q->select('id', 'vehicle_code', 'number_plat');
-                },
-                'createdBy' => function ($q) {
-                    $q->select('id', 'name', 'username');
-                },
-                'updatedBy' => function ($q) {
-                    $q->select('id', 'name', 'username');
                 },
                 'getrouteType' => function ($q) {
                     $q->select('id', 'route_type_code', 'route_type_name');

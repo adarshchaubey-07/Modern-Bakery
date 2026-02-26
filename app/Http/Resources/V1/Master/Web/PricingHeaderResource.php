@@ -105,30 +105,30 @@ class PricingHeaderResource extends JsonResource
                 explode(',', $this->company_id)
             )->get(['id', 'company_name as name', 'company_code as code']) : [],
 
-            'region' => $this->region_id ? Region::whereIn(
-                'id',
-                explode(',', $this->region_id)
-            )->get(['id', 'region_name as name', 'region_code as code']) : [],
+            // 'region' => $this->region_id ? Region::whereIn(
+            //     'id',
+            //     explode(',', $this->region_id)
+            // )->get(['id', 'region_name as name', 'region_code as code']) : [],
 
-            'area' => $this->area_id ? Area::whereIn(
-                'id',
-                explode(',', $this->area_id)
-            )->get(['id', 'area_name as name', 'area_code as code']) : [],
+            // 'area' => $this->area_id ? Area::whereIn(
+            //     'id',
+            //     explode(',', $this->area_id)
+            // )->get(['id', 'area_name as name', 'area_code as code']) : [],
 
-            'warehouse' => $this->warehouse_id ? Warehouse::whereIn(
-                'id',
-                explode(',', $this->warehouse_id)
-            )->get(['id', 'warehouse_name', 'warehouse_code']) : [],
+            // 'warehouse' => $this->warehouse_id ? Warehouse::whereIn(
+            //     'id',
+            //     explode(',', $this->warehouse_id)
+            // )->get(['id', 'warehouse_name', 'warehouse_code']) : [],
 
-            'route' => $this->route_id ? Route::whereIn(
-                'id',
-                explode(',', $this->route_id)
-            )->get(['id', 'route_name as name', 'route_code as code']) : [],
+            // 'route' => $this->route_id ? Route::whereIn(
+            //     'id',
+            //     explode(',', $this->route_id)
+            // )->get(['id', 'route_name as name', 'route_code as code']) : [],
 
-            'customer_category' => $this->customer_category_id ? CustomerCategory::whereIn(
-                'id',
-                explode(',', $this->customer_category_id)
-            )->get(['id', 'customer_category_name as name', 'customer_category_code as code']) : [],
+            // 'customer_category' => $this->customer_category_id ? CustomerCategory::whereIn(
+            //     'id',
+            //     explode(',', $this->customer_category_id)
+            // )->get(['id', 'customer_category_name as name', 'customer_category_code as code']) : [],
 
             'customer' => $this->customer_id ? AgentCustomer::whereIn(
                 'id',
@@ -140,21 +140,29 @@ class PricingHeaderResource extends JsonResource
                 explode(',', $this->outlet_channel_id)
             )->get(['id', 'outlet_channel as name', 'outlet_channel_code as code']) : [],
 
-            'item_category' => $this->item_category_id ? ItemCategory::whereIn(
-                'id',
-                explode(',', $this->item_category_id)
-            )->get(['id', 'category_name', 'category_code']) : [],
+            // 'item_category' => $this->item_category_id ? ItemCategory::whereIn(
+            //     'id',
+            //     explode(',', $this->item_category_id)
+            // )->get(['id', 'category_name', 'category_code']) : [],
 
-            'item' => $this->item_id ? Item::whereIn(
-                'id',
-                explode(',', $this->item_id)
-            )->get(['id', 'code', 'name']) : [],
-
-            // ✅ Include Pricing Details
+            // 'item' => $this->details
+            //     ? $this->details
+            //         ->pluck('item')
+            //         ->filter()
+            //         ->unique('id')
+            //         ->values()
+            //         ->map(function ($item) {
+            //             return [
+            //                 'id'   => $item->id,
+            //                 'code' => $item->code,
+            //                 'name' => $item->name,
+            //             ];
+            //         })
+            //     : [],
             
             'applicable_for'    => $this->applicable->uom_type ?? '',
             'status' => $this->status,
-            'details' => PricingDetailResource::collection($this->whenLoaded('details')),
+            // 'details' => PricingDetailResource::collection($this->whenLoaded('details')),
 
         ];
     }

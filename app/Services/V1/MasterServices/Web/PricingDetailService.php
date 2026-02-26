@@ -142,27 +142,22 @@ class PricingDetailService
                 'updated_user' => $data['updated_user'] ?? null,
             ]);
 
-            // 2️⃣ Prepare details with sequential osa_code
-            $last = PricingDetail::withTrashed()->latest('id')->first();
-            $next = $last ? ((int) preg_replace('/\D/', '', $last->osa_code)) + 1 : 1;
+            foreach ($data['details'] ?? [] as $detail) {
 
-            $details = collect($data['details'] ?? [])->map(function ($detail) use ($data, $header, &$next) {
-                $osa_code = 'PD' . str_pad($next, 3, '0', STR_PAD_LEFT);
-                $next++;
+            $detailModel = new PricingDetail();
+            $detailModel->uuid = Str::uuid()->toString();
+            $detailModel->header_id = $header->id;
+            $detailModel->uom_id = $detail['uom_id'] ?? null;
+            $detailModel->item_id = $detail['item_id'] ?? null;
+            $detailModel->price = $detail['price'] ?? 0.00;
+            $detailModel->status = $detail['status'] ?? $data['status'] ?? 1;
+            $detailModel->created_user = $data['created_user'] ?? 1;
+            $detailModel->save();
 
-                return [
-                    'uuid' => Str::uuid()->toString(),
-                    'osa_code' => $osa_code,
-                    'name' => isset($detail['item_id']) ? 'Item ' . $detail['item_id'] : null,
-                    'header_id' => $header->id,
-                    'uom_id' => $detail['uom_id'] ?? null,
-                    'item_id' => $detail['item_id'] ?? null,
-                    'price' => $detail['price'] ?? 0.00,
-                    'status' => $detail['status'] ?? $data['status'] ?? 1,
-                    'created_user' => $data['created_user'] ?? 1,
-                ];
-            })->toArray();
-            $header->details()->createMany($details);
+            $detailModel->osa_code = 'PD' . str_pad($detailModel->id, 3, '0', STR_PAD_LEFT);
+            $detailModel->name = 'Item ' . $detailModel->item_id;
+            $detailModel->save();
+        }
 
             DB::commit();
 
@@ -434,30 +429,76 @@ class PricingDetailService
                 'updated_user' => $data['updated_user'] ?? $header->updated_user,
             ]);
 
+            // if (!empty($data['details'])) {
+            //     $header->details()->delete();
+
+            //     $last = PricingDetail::withTrashed()->latest('id')->first();
+            //     $next = $last ? ((int) preg_replace('/\D/', '', $last->osa_code)) + 1 : 1;
+
+            //     $details = collect($data['details'])->map(function ($detail) use ($header, &$next, $data) {
+            //         $osa_code = 'PD' . str_pad($next, 3, '0', STR_PAD_LEFT);
+            //         $next++;
+
+            //         return [
+            //             'uuid' => Str::uuid()->toString(),
+            //             'osa_code' => $osa_code,
+            //             'name' => isset($detail['item_id']) ? 'Item ' . $detail['item_id'] : null,
+            //             'header_id' => $header->id,
+            //             'item_id' => $detail['item_id'] ?? null,
+            //             'uom_id'  => $detail['uom_id'] ?? null,
+            //             'price' => $detail['price'] ?? 0.00,
+            //             'status' => $detail['status'] ?? $data['status'] ?? 1,
+            //             'created_user' => $data['updated_user'] ?? $header->updated_user ?? 1,
+            //         ];
+            //     })->toArray();
+
+            //     $header->details()->createMany($details);
+            // }
             if (!empty($data['details'])) {
-                $header->details()->delete();
 
-                $last = PricingDetail::withTrashed()->latest('id')->first();
-                $next = $last ? ((int) preg_replace('/\D/', '', $last->osa_code)) + 1 : 1;
+                $existingDetailKeys = [];
+                $existingDetails = PricingDetail::where('header_id', $header->id)->get();
 
-                $details = collect($data['details'])->map(function ($detail) use ($header, &$next, $data) {
-                    $osa_code = 'PD' . str_pad($next, 3, '0', STR_PAD_LEFT);
-                    $next++;
+                foreach ($data['details'] as $detail) {
 
-                    return [
-                        'uuid' => Str::uuid()->toString(),
-                        'osa_code' => $osa_code,
-                        'name' => isset($detail['item_id']) ? 'Item ' . $detail['item_id'] : null,
-                        'header_id' => $header->id,
-                        'item_id' => $detail['item_id'] ?? null,
-                        'uom_id'  => $detail['uom_id'] ?? null,
-                        'price' => $detail['price'] ?? 0.00,
-                        'status' => $detail['status'] ?? $data['status'] ?? 1,
-                        'created_user' => $data['updated_user'] ?? $header->updated_user ?? 1,
-                    ];
-                })->toArray();
+                    $itemId = (int) $detail['item_id'];
+                    $uomId  = (int) $detail['uom_id'];
+                    $existing = $existingDetails->first(function ($row) use ($itemId, $uomId) {
+                        return $row->item_id == $itemId && $row->uom_id == $uomId;
+                    });
 
-                $header->details()->createMany($details);
+                    if ($existing) {
+                        $existing->update([
+                            'name'         => $detail['name'] ?? '',
+                            'price'        => $detail['price'] ?? 0,
+                            'status'       => $detail['status'] ?? 1,
+                            'updated_user' => auth()->id(),
+                        ]);
+
+                        $existingDetailKeys[] = $existing->id;
+
+                    } else {
+                        $new = PricingDetail::create([
+                            'uuid'         => Str::uuid(),
+                            'header_id'    => $header->id,
+                            'name'         => $detail['name'] ?? '',
+                            'item_id'      => $itemId,
+                            'uom_id'       => $uomId,
+                            'price'        => $detail['price'] ?? 0,
+                            'status'       => $detail['status'] ?? 1,
+                            'created_user' => auth()->id(),
+                            'updated_user' => auth()->id(),
+                        ]);
+                        $new->osa_code = 'PD' . str_pad($new->id, 3, '0', STR_PAD_LEFT);
+                        $new->save();
+ 
+                        $existingDetailKeys[] = $new->id; 
+                    }
+                }
+
+                PricingDetail::where('header_id', $header->id)
+                    ->whereNotIn('id', $existingDetailKeys)
+                    ->delete();
             }
 
             DB::commit();
@@ -534,56 +575,77 @@ class PricingDetailService
     //         );
     //     }
     // }
-    public function globalSearch(int $perPage = 10, ?string $searchTerm = null)
-    {
-        $query = PricingHeader::with([
-            'details',
-        ])
-            ->whereNull('deleted_at');
+public function globalSearch(int $perPage = 10, ?string $searchTerm = null)
+{
+    $query = PricingHeader::with([
+        'details',
+        'outletChannel',
+        'customer'
+    ])->whereNull('deleted_at');
 
-        if ($searchTerm) {
+    if ($searchTerm) {
 
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('code', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('name', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('description', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('warehouse_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('item_type', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('company_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('region_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('area_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('route_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('item_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('item_category_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('customer_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('customer_category_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('customer_type_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('outlet_channel_id', 'ILIKE', "%{$searchTerm}%")
-                    ->orWhere('applicable_for', 'ILIKE', "%{$searchTerm}%");
+        $query->where(function ($q) use ($searchTerm) {
 
-                $q->orWhereRaw('id::text ILIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('status::text ILIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('apply_on::text ILIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('start_date::text ILIKE ?', ["%{$searchTerm}%"])
-                    ->orWhereRaw('end_date::text ILIKE ?', ["%{$searchTerm}%"]);
+            // Main table search
+            $q->where('code', 'ILIKE', "%{$searchTerm}%")
+                ->orWhere('name', 'ILIKE', "%{$searchTerm}%")
+                ->orWhere('description', 'ILIKE', "%{$searchTerm}%")
+                ->orWhere('applicable_for', 'ILIKE', "%{$searchTerm}%")
+                ->orWhereRaw('id::text ILIKE ?', ["%{$searchTerm}%"])
+                ->orWhereRaw('status::text ILIKE ?', ["%{$searchTerm}%"])
+                ->orWhereRaw('apply_on::text ILIKE ?', ["%{$searchTerm}%"])
+                ->orWhereRaw('start_date::text ILIKE ?', ["%{$searchTerm}%"])
+                ->orWhereRaw('end_date::text ILIKE ?', ["%{$searchTerm}%"]);
 
-                $q->orWhereHas('details', function ($dq) use ($searchTerm) {
-                    $dq->whereNull('deleted_at')
-                        ->where(function ($sub) use ($searchTerm) {
-                            $sub->where('osa_code', 'ILIKE', "%{$searchTerm}%")
-                                ->orWhere('name', 'ILIKE', "%{$searchTerm}%")
-                                ->orWhereRaw('price::text ILIKE ?', ["%{$searchTerm}%"])
-                                ->orWhereRaw('status::text ILIKE ?', ["%{$searchTerm}%"])
-                                ->orWhereRaw('uom_id::text ILIKE ?', ["%{$searchTerm}%"])
-                                ->orWhereRaw('item_id::text ILIKE ?', ["%{$searchTerm}%"]);
+                $q->orWhereExists(function ($sub) use ($searchTerm) {
+                    $sub->select(DB::raw(1))
+                        ->from('outlet_channel')
+                        ->whereNull('outlet_channel.deleted_at')
+                        ->whereRaw("
+                            outlet_channel.id = ANY(
+                                string_to_array(pricing_headers.outlet_channel_id, ',')::int[]
+                            )
+                        ")
+                        ->where(function ($channel) use ($searchTerm) {
+                            $channel->where('outlet_channel_code', 'ILIKE', "%{$searchTerm}%")
+                                    ->orWhere('outlet_channel', 'ILIKE', "%{$searchTerm}%");
                         });
                 });
-            });
-        }
 
-        return $query
-            ->orderByDesc('id')
-            ->paginate($perPage);
+                $q->orWhereExists(function ($sub) use ($searchTerm) {
+                    $sub->select(DB::raw(1))
+                        ->from('agent_customers')
+                        ->whereNull('agent_customers.deleted_at')
+                        ->whereRaw("
+                            agent_customers.id = ANY(
+                                string_to_array(pricing_headers.customer_id, ',')::int[]
+                            )
+                        ")
+                        ->where(function ($customer) use ($searchTerm) {
+                            $customer->where('osa_code', 'ILIKE', "%{$searchTerm}%")
+                                    ->orWhere('name', 'ILIKE', "%{$searchTerm}%")
+                                    ->orWhere('owner_name', 'ILIKE', "%{$searchTerm}%");
+                        });
+                });
+            $q->orWhereHas('details', function ($dq) use ($searchTerm) {
+                $dq->whereNull('deleted_at')
+                    ->where(function ($sub) use ($searchTerm) {
+                        $sub->where('osa_code', 'ILIKE', "%{$searchTerm}%")
+                            ->orWhere('name', 'ILIKE', "%{$searchTerm}%")
+                            ->orWhereRaw('price::text ILIKE ?', ["%{$searchTerm}%"])
+                            ->orWhereRaw('status::text ILIKE ?', ["%{$searchTerm}%"])
+                            ->orWhereRaw('uom_id::text ILIKE ?', ["%{$searchTerm}%"])
+                            ->orWhereRaw('item_id::text ILIKE ?', ["%{$searchTerm}%"]);
+                    });
+            });
+
+        });
     }
+
+    return $query
+        ->orderByDesc('id')
+        ->paginate($perPage);
+}
 
 }
